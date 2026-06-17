@@ -87,7 +87,7 @@ def decorate_2d(
 
     inp_normals = normals_from_depth_sobel(
         inp_depth.cpu().numpy(),
-        bg_mask=inp_mask.squeeze().cpu().numpy(),
+        bg_mask=~inp_mask.squeeze().cpu().numpy(),
     )
 
     # * Mask out background
