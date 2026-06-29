@@ -71,7 +71,8 @@ def extract_controlnet_dino_features(
     aligned_unet = F.grid_sample(ft, grid.float(), mode=extr_mode, align_corners=False).reshape(
         1, ft_dim, -1
     )
-    aligned_unet = F.normalize(aligned_unet, dim=-1)
+    # L2-normalize each pixel descriptor over the channel dim (tensor is [1, C, N])
+    aligned_unet = F.normalize(aligned_unet, dim=1)
 
     if dino_from_original:
         orig_dino_features = get_dino_features(
@@ -80,14 +81,14 @@ def extract_controlnet_dino_features(
         orig_dino_features = F.grid_sample(
             orig_dino_features, grid, mode=extr_mode, align_corners=False
         ).reshape(1, 768, -1)
-        aligned_dino_features = F.normalize(orig_dino_features, dim=-1)
+        aligned_dino_features = F.normalize(orig_dino_features, dim=1)
     else:
         # ! 2. DINOv2 on ControlNet-textured image
         aligned_dino_features = get_dino_features(device, dino_model, diffusion_output[1][0])
         aligned_dino_features = F.grid_sample(
             aligned_dino_features, grid, mode=extr_mode, align_corners=False
         ).reshape(1, 768, -1)
-        aligned_dino_features = F.normalize(aligned_dino_features, dim=-1)
+        aligned_dino_features = F.normalize(aligned_dino_features, dim=1)
 
     # ! 3. Fuse features
     aligned_fused_features = torch.hstack(

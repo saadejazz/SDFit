@@ -165,10 +165,9 @@ class EdgeDetector(nn.Module):
 ################################## * Geometry helpers ##################################
 def matrix_to_rot6d(matrix: torch.Tensor) -> torch.Tensor:
     matrix = matrix.view(-1, 3, 3)
-    a1 = matrix[:, :, 0]
-    a2 = matrix[:, :, 1]
-    # a3 = matrix[:, :, 2]
-    return torch.stack((a1, a2), dim=-1).view(-1, 6)
+    a1 = matrix[:, 0, :]
+    a2 = matrix[:, 1, :]
+    return torch.cat((a1, a2), dim=-1)
 
 
 def calculate_centroid(mask):

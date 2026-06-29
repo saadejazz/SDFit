@@ -266,23 +266,22 @@ def render_mesh(
 
     if "normal" in return_types:
         normals = out_dict["normal"][0]
-        with torch.no_grad():
-            normals *= torch.tensor([[1, -1, -1]], device=device)
-            normals = (normals + 1) / 2
-            normals = overlay_alpha(normals, bg_img, alpha)
+        normals = normals * torch.tensor([[1, -1, -1]], device=device)
+        normals = (normals + 1) / 2
+        normals = overlay_alpha(normals, bg_img, alpha)
         ret.normals = normals
 
     if "depth" in return_types:
         gb_pos, _ = interpolate(to_homog(mesh_verts), rast, mesh_faces, rast_db=rast_db)
 
-        with torch.no_grad():
-            shape_keep = gb_pos.shape
-            gb_pos = gb_pos.reshape(shape_keep[0], -1, shape_keep[-1])[..., :3]
+        shape_keep = gb_pos.shape
+        gb_pos = gb_pos.reshape(shape_keep[0], -1, shape_keep[-1])[..., :3]
 
-            depth = xfm_points(gb_pos.contiguous(), mv)
-            depth = (depth.reshape(shape_keep)[..., 2] * -1).squeeze()
-            depth[mask_bool] = standardize_tensor(depth[mask_bool]).clamp(0, 1)
-            ret.depth = overlay_alpha(depth.unsqueeze(-1), bg_img[..., [0]], alpha).squeeze()
+        depth = xfm_points(gb_pos.contiguous(), mv)
+        depth = (depth.reshape(shape_keep)[..., 2] * -1).squeeze()
+        depth_norm = torch.zeros_like(depth)
+        depth_norm[mask_bool] = standardize_tensor(depth[mask_bool]).clamp(0, 1)
+        ret.depth = overlay_alpha(depth_norm.unsqueeze(-1), bg_img[..., [0]], alpha).squeeze()
 
     if flip_vertical:
         if ret.get("mask") is not None:
