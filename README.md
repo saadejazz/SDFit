@@ -75,7 +75,7 @@ pip install opencv-python tqdm pre-commit scikit-learn iopath omegaconf plyfile 
 
 We will release our code in two stages:
 - [x] Demo
-- [ ] Full Framework w/ detailed instructions about steps (_est. December_)
+- [ ] Full Framework 
 
 ## 🚀 Running SDFit
 For running the demo, download the demo example from [here](https://drive.google.com/file/d/1G2spZtiwg5B5dCUZYZklVo1OIv_mCLRj/view?usp=sharing), and place it under `${YOUR_DEMO_PATH}`.

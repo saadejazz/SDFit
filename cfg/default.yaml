@@ -10,7 +10,7 @@ log:
   mesh_last: true
 
 early_stop:
-  enabled: true
+  enabled: false
   no_change_patience: 20
   no_change_tol: 1e-6
 
@@ -73,8 +73,8 @@ shape_stage:
       lr_min: 1.e-5
       T_max: ${shape_stage.max_iters}
     latent:
-      lr: 1.e-4
-      lr_min: 1.e-5
+      lr: 5.e-3
+      lr_min: 1.e-4
       T_max: ${shape_stage.max_iters}
   loss_cfg:
     part_based: true

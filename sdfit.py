@@ -41,21 +41,27 @@ def load_data(data_config: DictConfig, device: str | torch.device) -> EasierDict
     inp_data["input_img"] = to_tensor(load_image(input_root / "rgb.png"))[..., :3]
 
     # * Load mask image (used for fitting)
-    inp_data["mask"] = to_tensor(load_image(input_root / "mask.png", mode="L"), dtype=torch.float32)
+    inp_data["mask"] = to_tensor(
+        load_image(input_root / "mask.png", mode="L"), dtype=torch.float32
+    )
 
     # * Load normals image (used for fitting)
     inp_data["normals"] = to_tensor(load_image(input_root / "normals.png")).float()
     inp_data["normals"][inp_data["mask"] == 0] = 0
 
     # * Load depth image (used for fitting)
-    depth = to_tensor(load_image(input_root / "depth.png", mode="L"), dtype=torch.float32)
+    depth = to_tensor(
+        load_image(input_root / "depth.png", mode="L"), dtype=torch.float32
+    )
     valid_pixels = inp_data["mask"] > 0
     norm_depth = normalize_depth(depth[valid_pixels])
     inp_data["depth"] = torch.zeros_like(depth)
     inp_data["depth"][valid_pixels] = 1 - norm_depth
 
     # * Load bdist image (used for fitting)
-    inp_data["dist"] = torch.tensor(load_image(input_root / "bdist.png", mode="L") / 255.0).float()
+    inp_data["dist"] = torch.tensor(
+        load_image(input_root / "bdist.png", mode="L") / 255.0
+    ).float()
 
     # * Load estimated camera params
     pred_cam_params = dict(np.load(input_root / "cam_params.npz", allow_pickle=True))
@@ -145,7 +151,9 @@ def main(opt: DictConfig):
     if inp_data.shape_features is None:
         ckpt_start = time.time()
         print("[Step 0.1] Decorating init shape with ControlNet + DINOv2 features.")
-        inp_data.mesh_faces = inp_data.mesh_faces[..., [2, 1, 0]]  # flip face orientation
+        inp_data.mesh_faces = inp_data.mesh_faces[
+            ..., [2, 1, 0]
+        ]  # flip face orientation
         inp_data["shape_features"] = decorate_3d(
             mesh=Meshes(
                 verts=[inp_data.mesh_verts],
@@ -156,7 +164,9 @@ def main(opt: DictConfig):
             n_views=8,
             num_inference_steps=50,
         ).to(torch.float32)
-        print(f"\tTime (with ckpt loading): {human_readable_time(time.time() - ckpt_start)}")
+        print(
+            f"\tTime (with ckpt loading): {human_readable_time(time.time() - ckpt_start)}"
+        )
     else:
         print("[Step 0.1] Init shape decorated.")
 
@@ -189,7 +199,9 @@ def main(opt: DictConfig):
         mask_bool = inp_data["mask"].bool()
         pix_aligned_lbls = torch.full_like(inp_data["mask"], -1, dtype=torch.long)
         pix_aligned_lbls[mask_bool] = cluster_labels
-        cluster_masks = torch.zeros((n_clusters, *inp_data["mask"].shape), dtype=torch.float32)
+        cluster_masks = torch.zeros(
+            (n_clusters, *inp_data["mask"].shape), dtype=torch.float32
+        )
         cluster_masks[:, mask_bool] = F.one_hot(cluster_labels, n_clusters).T.float()
         inp_data["cluster_masks"] = cluster_masks
 
@@ -208,7 +220,6 @@ def main(opt: DictConfig):
 
     img_points = torch.nonzero(inp_data.mask)
     img_points = img_points[:, [1, 0]]  # ->  (x, y)
-    img_points[..., 1] = inp_data.mask.shape[0] - img_points[..., 1]
 
     print("[Step 1] Estimating initial pose.")
     pnp_output = solve_pnp_ransac(
@@ -238,7 +249,9 @@ def main(opt: DictConfig):
 
     orient_loss, iou = [], []
     params = []
-    for idx, (ext_R, ext_t) in enumerate(zip(pnp_output["ext_Rs"], pnp_output["ext_ts"])):
+    for idx, (ext_R, ext_t) in enumerate(
+        zip(pnp_output["ext_Rs"], pnp_output["ext_ts"])
+    ):
         focal_x = inp_data.cam_params.K[0, 0]
         focal_y = inp_data.cam_params.K[1, 1]
 
@@ -253,7 +266,9 @@ def main(opt: DictConfig):
         ).to(opt.device)
 
         vars = EasierDict(
-            rotation=matrix_to_rot6d(torch.eye(3, dtype=torch.float32, device=opt.device))[0],
+            rotation=matrix_to_rot6d(
+                torch.eye(3, dtype=torch.float32, device=opt.device)
+            )[0],
             translation=torch.zeros(3, dtype=torch.float32, device=opt.device),
             scale=torch.ones(3, dtype=torch.float32, device=opt.device),
         )
@@ -293,7 +308,15 @@ def main(opt: DictConfig):
                     }
                 ),
             )
-            loss = monitor.run_fitting(optimizer, closure, scheduler)
+            loss = monitor.run_fitting(
+                optimizer,
+                closure,
+                scheduler,
+                no_change_patience=opt.early_stop.no_change_patience
+                if opt.early_stop.enabled
+                else 0,
+                no_change_tol=opt.early_stop.no_change_tol,
+            )
             orient_loss.append(loss[-1].depth + 100 * loss[-1].mask_iou)
             iou.append((1 - loss[-1].mask_iou).item())
             params.append(vars.clone())
@@ -364,7 +387,15 @@ def main(opt: DictConfig):
             loss_fn=loss_fn,
             resolution=resolution,
         )
-        loss = monitor.run_fitting(optimizer, closure, scheduler)
+        loss = monitor.run_fitting(
+            optimizer,
+            closure,
+            scheduler,
+            no_change_patience=opt.early_stop.no_change_patience
+            if opt.early_stop.enabled
+            else 0,
+            no_change_tol=opt.early_stop.no_change_tol,
+        )
 
     vars = vars.detach().cpu()
     print("Extracting final mesh.")

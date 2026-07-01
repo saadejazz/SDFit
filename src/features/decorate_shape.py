@@ -71,6 +71,7 @@ def extract_controlnet_dino_features(
     aligned_unet = F.grid_sample(ft, grid.float(), mode=extr_mode, align_corners=False).reshape(
         1, ft_dim, -1
     )
+    # L2-normalize each pixel descriptor over the channel dim (tensor is [1, C, N])
     aligned_unet = F.normalize(aligned_unet, dim=1)
 
     if dino_from_original:
